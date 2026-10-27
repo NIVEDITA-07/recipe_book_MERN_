@@ -3,7 +3,15 @@ import express from "express";
 import mongoose from "mongoose";
 import cors from "cors";
 import dotenv from "dotenv";
+import path from "node:path";
+import fs from "node:fs";
+import { fileURLToPath } from "node:url";
 
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const frontendDistPath = path.join(__dirname, "../frontend/dist");
+
+dotenv.config({ path: path.join(__dirname, ".env") });
 dotenv.config();
 
 const app = express();
@@ -70,7 +78,8 @@ const recipeSchema = new mongoose.Schema({
 
 const Recipe = mongoose.model("Recipe", recipeSchema);
 
-app.get("/", (req, res) => {
+// Health check
+app.get("/api/health", (req, res) => {
   res.json({ message: "Recipe Book API is running" });
 });
 
@@ -149,6 +158,23 @@ app.delete("/api/recipes/:id", async (req, res) => {
     res.status(400).json({ message: "Invalid recipe ID." });
   }
 });
+
+// Serve frontend static assets in production
+if (fs.existsSync(frontendDistPath)) {
+  app.use(express.static(frontendDistPath));
+
+  // Catch-all route to serve React index.html for SPA routing
+  app.use((req, res) => {
+    if (req.path.startsWith("/api")) {
+      return res.status(404).json({ message: "API endpoint not found." });
+    }
+    res.sendFile(path.join(frontendDistPath, "index.html"));
+  });
+} else {
+  app.get("/", (req, res) => {
+    res.json({ message: "Recipe Book API is running. Build frontend to view the UI." });
+  });
+}
 
 const PORT = process.env.PORT || 5000;
 
