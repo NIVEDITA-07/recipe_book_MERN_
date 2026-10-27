@@ -8,10 +8,29 @@ dotenv.config();
 
 const app = express();
 
+const rawClientUrls = process.env.CLIENT_URL
+  ? process.env.CLIENT_URL.split(",").map(url => url.trim().replace(/\/+$/, ""))
+  : [];
+
 app.use(cors({
-  origin: process.env.CLIENT_URL
-    ? process.env.CLIENT_URL.split(",").map(url => url.trim())
-    : "http://localhost:5173"
+  origin: (origin, callback) => {
+    // Allow non-browser requests (e.g. curl, postman, server-to-server)
+    if (!origin) return callback(null, true);
+
+    // Allow any localhost / 127.0.0.1 port in local development
+    if (/^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin)) {
+      return callback(null, true);
+    }
+
+    // Allow configured client origins (e.g. Vercel deployment)
+    const normalizedOrigin = origin.replace(/\/+$/, "");
+    if (rawClientUrls.includes(normalizedOrigin)) {
+      return callback(null, true);
+    }
+
+    return callback(null, false);
+  },
+  credentials: true
 }));
 app.use(express.json());
 
